@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>D3 World Map</title>
+    <style>
+      path {
+        stroke: black;
+        stroke-width: 2px;
+        fill: #ede4fc;
+      }
+      #tooltip {
+        text-align: left;
+        padding: 16px;
+        background-color: rgb(252, 248, 53);
+        border: 1px solid black;
+        border-radius: 10px;
+        width: fit-content;
+        opacity: 0;
+        color: black;
+        position: absolute;
+        }
+        .text-block{
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-self: center;
+          width: 100%;
+        }
+        .text-block  h1 , .text-block p{
+          text-align: center;
+        }
+    </style>
+    
+  </head>
+  <body>
+
+    <div class="text-block">
+      <h1>My World Map Visualization</h1>
+      <p>To get more information hover over the dots</p>
+    </div>
+
+
+    <div id="tooltip">
+      Name: <span id="name" class="info"></span><br> 
+      Population: <span id="population" class="info"></span><br>
+      Income group: <span id="income" class="info"></span><br>  
+    </div>
+
+    <script src="http://d3js.org/topojson.v0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js"></script> 
+    <script type="text/javascript">
+      var width = 2000;
+      var height = 800;
+
+      var projection = d3.geo.mercator().translate([width/2 , height/1.4])
+      
+      var svg = d3.select("body").append("svg")
+          .attr("width", width)
+          .attr("height", height)
+          
+      var path = d3.geo.path()
+          .projection(projection);
+
+      var g = svg.append("g")
+                 .attr("x", 50)
+                 .attr("y", 450);
+
+      d3.json("countries-110m.json", function(error, topology) {
+          g.selectAll("path")
+            .data(topojson.object(topology, topology.objects.countries)
+                .geometries)
+            .enter()
+            .append("path")
+            .attr("d", path)
+          
+          console.log(g.selectAll("path")[0][1].getBBox())
+
+          d3.json("world-geojson.json" , (data)=>{
+        
+                  var locations = data.features;
+
+                  locations.colors = ["#000" , "#ff0000"]
+
+                  console.log(locations.colors[0])
+                                 
+                  g.selectAll('circle')
+                    .data(locations)
+                    .enter()
+                    .append('circle') 
+                    .attr('r', function(d) {
+                      if (d.properties.POP_EST > 1000000000) {
+                        
+                        return 20
+                      }
+                      else if(d.properties.POP_EST > 100000000){
+                        return 14
+                      }
+                      else if(d.properties.POP_EST > 50000000){
+                        return 9
+                      }
+                      else if(d.properties.POP_EST > 10000000){
+                        return 5
+                      }
+                      else{
+                        return 2.5
+                      }
+                    })
+                    .attr("transform",function(d){                 
+                      var p = projection(d3.geo.centroid(d)); 
+                                            return "translate("+p+")";
+                    })
+                    .style('fill', function(d) {
+                      if(d.properties.POP_EST > 1000000000)
+                      {
+                        // var i = 0
+                        // return d.colors[i];
+                        return "#ffc000";
+                      }
+                      else if(d.properties.POP_EST > 100000000){
+                        // var i = 1
+                        // return d.colors[i]
+                        return "#ff00c0";
+                      }
+                      else if(d.properties.POP_EST > 50000000){
+                        return "#ff0000"
+                      }
+                      else if(d.properties.POP_EST > 10000000){
+
+                        return "#48ff00"
+                      }
+                      else if(d.properties.POP_EST < 10000000){
+                        return "#18ffff";
+                      }
+                    })
+                    .style("stroke" , "#000")
+                    .on('mouseover', function(d , data) {
+
+                    console.log(d)
+                    d3.select('#name').text(d.properties.NAME_EN);
+                    d3.select('#population').text(d.properties.POP_EST);
+                    d3.select('#income').text(d.properties.INCOME_GRP);
+                    d3.select('#tooltip')
+                    .style('left', (d3.event.pageX + 20) + 'px')
+                    .style('top', (d3.event.pageY - 80) + 'px')
+                    .style('display', 'block')
+                    .style('opacity', 0.8)
+                    .transition()
+                    .duration(2000)
+                    })
+                    //Add Event Listeners | mouseout
+                    .on('mouseout', function(d) { 
+                    d3.select('#tip')  
+                    .style('display', 'none');
+                    });
+
+
+                var condArray = ["Population is > 1 000 000 000" , "Population is > 100 000 000" ,
+                 "Population is > 50 000 000" , "Population is > 10 000 000" ,"Population is < 10 000 000"] 
+
+                var color = d3.scale.ordinal()
+                .domain(condArray)
+                .range(["#ffc000" , "#ff00c0" , "#ff0000", "#48ff00", "#18ffff"]);
+
+                var size = 20
+                g.selectAll("mydots")
+                .data(condArray)
+                .enter()
+                .append("rect")
+                    .attr("x", 100)
+                    .attr("y", function(d,i){ return 100 + i*(size+5)})                    
+                    .attr("width", size)
+                    .attr("height", size)
+                    .style("fill", function(d){ return color(d)})
+
+                    g.selectAll("mylabels")
+                    .data(condArray)
+                    .enter()
+                    .append("text")
+                        .attr("x", 100 + size*1.2)
+                        .attr("y", function(d,i){ return 100 + i*(size+5) + (size/2)}) 
+                        .style("fill", "#000")
+                        .text(function(d){ return d})
+                        .attr("text-anchor", "left")
+                        .style("alignment-baseline", "middle")
+
+
+              })
+          
+      })
+
+      
+    </script>
+  </body>
+</html>
